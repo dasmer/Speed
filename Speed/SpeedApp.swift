@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreLocation
+import MapKit
 
 struct ContentView: View {
     @StateObject private var locationManager = LocationManager()
@@ -7,47 +8,65 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Background gradient
+                // Map as background with dark appearance
+                Map(position: .constant(.region(locationManager.region))) {
+                    UserAnnotation()
+                }
+                .mapStyle(.standard(elevation: .realistic, emphasis: .muted))
+                .mapControls {
+                    // Empty to hide all controls
+                }
+                .preferredColorScheme(.dark)
+                .ignoresSafeArea()
+
+                // Semi-transparent overlay for better text visibility
                 LinearGradient(
-                    gradient: Gradient(colors: [Color.black, Color.gray.opacity(0.3)]),
+                    gradient: Gradient(stops: [
+                        .init(color: .black.opacity(0.6), location: 0),
+                        .init(color: .black.opacity(0.2), location: 0.3),
+                        .init(color: .black.opacity(0.2), location: 0.7),
+                        .init(color: .black.opacity(0.6), location: 1)
+                    ]),
                     startPoint: .top,
                     endPoint: .bottom
                 )
                 .ignoresSafeArea()
 
                 VStack(spacing: 30) {
-                    Spacer()
-
-                    // Speed display
+                    // Speed display at top
                     VStack(spacing: 10) {
                         Text(String(format: "%.0f", locationManager.speed))
-                            .font(.system(size: min(geometry.size.width * 0.3, 120), weight: .heavy, design: .default))
-                            .foregroundColor(Color(hex: "00D632"))
-                            .shadow(color: Color(hex: "00D632").opacity(0.3), radius: 10, x: 0, y: 0)
+                            .font(.system(size: min(geometry.size.width * 0.25, 100), weight: .heavy, design: .default))
+                            .foregroundColor(Color(red: 0, green: 0.839, blue: 0.196))
+                            .shadow(color: .black, radius: 3, x: 0, y: 2)
+                            .shadow(color: Color(red: 0, green: 0.839, blue: 0.196).opacity(0.5), radius: 10, x: 0, y: 0)
 
                         Text(locationManager.speedUnit)
-                            .font(.system(size: 24, weight: .bold, design: .default))
+                            .font(.system(size: 20, weight: .bold, design: .default))
                             .foregroundColor(.white)
-                            .opacity(0.8)
-                    }
+                            .shadow(color: .black, radius: 2, x: 0, y: 1)
+                            .opacity(0.9)
 
-                    // Speed bar indicator
-                    SpeedBar(speed: locationManager.speed, maxSpeed: locationManager.maxSpeed)
-                        .frame(height: 20)
-                        .padding(.horizontal, 40)
+                        // Speed bar indicator
+                        SpeedBar(speed: locationManager.speed, maxSpeed: locationManager.maxSpeed)
+                            .frame(height: 16)
+                            .frame(maxWidth: 250)
+                    }
+                    .padding(.top, 50)
 
                     Spacer()
 
-                    // Status info
+                    // Status info at bottom
                     VStack(spacing: 8) {
                         HStack {
                             Circle()
-                                .fill(locationManager.isLocationAuthorized ? Color(hex: "00D632") : .red)
-                                .frame(width: 12, height: 12)
+                                .fill(locationManager.isLocationAuthorized ? Color(red: 0, green: 0.839, blue: 0.196) : .red)
+                                .frame(width: 10, height: 10)
 
                             Text(locationManager.statusMessage)
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.white)
+                                .shadow(color: .black, radius: 2, x: 0, y: 1)
                         }
 
                         // Settings button when location is denied
@@ -59,18 +78,17 @@ struct ContentView: View {
                                     Image(systemName: "gear")
                                     Text("Open Settings")
                                 }
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.black)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 10)
-                                .background(Color(hex: "00D632"))
-                                .cornerRadius(25)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color(red: 0, green: 0.839, blue: 0.196))
+                                .cornerRadius(20)
                             }
-                            .padding(.top, 10)
+                            .padding(.top, 8)
                         }
                     }
-
-                    Spacer()
+                    .padding(.bottom, 30)
                 }
                 .padding()
             }
@@ -90,16 +108,17 @@ struct SpeedBar: View {
             ZStack(alignment: .leading) {
                 // Background bar
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.white.opacity(0.2))
+                    .fill(Color.white.opacity(0.3))
+                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
 
                 // Speed indicator bar
                 RoundedRectangle(cornerRadius: 10)
                     .fill(
                         LinearGradient(
                             gradient: Gradient(colors: [
-                                Color(hex: "00D632"),
-                                speed > maxSpeed * 0.7 ? .orange : Color(hex: "00D632"),
-                                speed > maxSpeed * 0.9 ? .red : Color(hex: "00D632")
+                                Color(red: 0, green: 0.839, blue: 0.196),
+                                speed > maxSpeed * 0.7 ? .orange : Color(red: 0, green: 0.839, blue: 0.196),
+                                speed > maxSpeed * 0.9 ? .red : Color(red: 0, green: 0.839, blue: 0.196)
                             ]),
                             startPoint: .leading,
                             endPoint: .trailing
@@ -120,6 +139,10 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var isLocationAuthorized = false
     @Published var statusMessage = "Requesting location..."
     @Published var showSettingsButton = false
+    @Published var region = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194), // Default: SF
+        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+    )
 
     var maxSpeed: Double {
         return isMetricSystem ? 200.0 : 120.0
@@ -173,6 +196,14 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
 
         statusMessage = speedInMPS > 0 ? "Tracking speed" : "Speed: 0"
+
+        // Update map region to center on user location
+        DispatchQueue.main.async {
+            self.region = MKCoordinateRegion(
+                center: location.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            )
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -203,38 +234,12 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 }
 
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (1, 1, 1, 0)
-        }
-
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue:  Double(b) / 255,
-            opacity: Double(a) / 255
-        )
-    }
-}
-
 @main
 struct SpeedometerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(.dark) // Force dark mode for entire app
         }
     }
 }
